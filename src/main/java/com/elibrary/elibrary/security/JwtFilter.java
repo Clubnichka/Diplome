@@ -28,6 +28,9 @@ public class JwtFilter extends OncePerRequestFilter {
                                     FilterChain filterChain)
             throws ServletException, IOException {
 
+        response.setHeader("Access-Control-Allow-Origin", "http://localhost:3000");
+        response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE");
+        response.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
         String authHeader = request.getHeader("Authorization");
 
         if (authHeader != null && authHeader.startsWith("Bearer ")) {

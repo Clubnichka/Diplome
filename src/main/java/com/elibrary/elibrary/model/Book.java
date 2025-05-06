@@ -2,6 +2,7 @@ package com.elibrary.elibrary.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
+import java.util.Set;
 
 @Entity
 @Table(name = "books")
@@ -22,6 +23,21 @@ public class Book {
     private LocalDate publishedDate;
 
     private String filePath; // путь к pdf-файлу
+    @ManyToMany
+    @JoinTable(
+            name = "book_tags",
+            joinColumns = @JoinColumn(name = "book_id"),
+            inverseJoinColumns = @JoinColumn(name = "tag_id")
+    )
+    private Set<Tag> tags;
+
+    public Set<Tag> getTags() {
+        return tags;
+    }
+
+    public void setTags(Set<Tag> tags) {
+        this.tags = tags;
+    }
 
     // Геттеры и сеттеры
 

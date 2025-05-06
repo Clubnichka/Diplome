@@ -1,7 +1,9 @@
 package com.elibrary.elibrary.controller;
 
 import com.elibrary.elibrary.model.Book;
+import com.elibrary.elibrary.model.Tag;
 import com.elibrary.elibrary.service.BookService;
+import com.elibrary.elibrary.service.TagService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -16,6 +18,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -27,15 +30,27 @@ public class BookController {
     @Autowired
     private BookService bookService;
 
+    @Autowired
+    private TagService tagService;  // Добавление сервиса для работы с тегами
+
     @GetMapping
     public List<Book> getAllBooks() {
-        return bookService.getAllBooks();
+        List<Book> books = bookService.getAllBooks();
+
+        // Загружаем теги для каждой книги
+        books.forEach(book -> book.setTags(tagService.getTagsForBook(book.getId())));
+
+        return books;
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<Book> getBookById(@PathVariable Long id) {
         Optional<Book> book = bookService.getBookById(id);
-        return book.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+        return book.map(b -> {
+            // Загружаем теги для книги по её ID
+            b.setTags(tagService.getTagsForBook(b.getId()));
+            return ResponseEntity.ok(b);
+        }).orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @PostMapping
@@ -45,36 +60,31 @@ public class BookController {
                                         @RequestParam("author") String author,
                                         @RequestParam("publisher") String publisher,
                                         @RequestParam("releaseDate") String releaseDate,
-                                        @RequestParam("genre") String genre) throws IOException {
+                                        @RequestParam("genre") String genre,
+                                        @RequestParam(value = "tags", required = false) List<String> tags) throws IOException {
 
-        // Проверка на тип файла (PDF)
         if (!file.getContentType().equals("application/pdf")) {
-            return ResponseEntity.badRequest().body(null); // Возвращаем ошибку, если файл не PDF
+            return ResponseEntity.badRequest().body(null);
         }
 
-        // Создаем директорию для загрузки файлов, если она не существует
         String uploadDir = Paths.get("uploads").toAbsolutePath().normalize().toString();
         Files.createDirectories(Paths.get(uploadDir));
 
-        // Сохраняем файл
         String fileName = file.getOriginalFilename();
         String filePath = uploadDir + File.separator + fileName;
-        File targetFile = new File(filePath);
-        file.transferTo(targetFile); // Перемещаем файл в папку
+        file.transferTo(new File(filePath));
 
-        // Создаем новый объект книги
         Book book = new Book();
         book.setTitle(title);
         book.setAuthor(author);
         book.setPublisher(publisher);
         book.setGenre(genre);
         book.setPublishedDate(LocalDate.parse(releaseDate));
-        book.setFilePath(filePath);  // Сохраняем путь к файлу
+        book.setFilePath(filePath);
 
-        // Сохраняем книгу в БД
-        Book savedBook = bookService.addBook(book);
+        // Сохраняем книгу и связанные с ней теги
+        Book savedBook = bookService.addBook(book, tags != null ? tags : new ArrayList<>());
 
-        // Возвращаем успешно сохраненную книгу
         return ResponseEntity.ok(savedBook);
     }
 

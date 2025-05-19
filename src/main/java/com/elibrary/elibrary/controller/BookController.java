@@ -5,6 +5,7 @@ import com.elibrary.elibrary.model.Tag;
 import com.elibrary.elibrary.service.BookService;
 import com.elibrary.elibrary.service.TagService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -87,7 +88,19 @@ public class BookController {
 
         return ResponseEntity.ok(savedBook);
     }
-
+    @GetMapping("/filter")
+    public ResponseEntity<Page<Book>> filterBooks(
+            @RequestParam(required = false) String genres,
+            @RequestParam(required = false) String author,
+            @RequestParam(required = false) Integer yearFrom,
+            @RequestParam(required = false) Integer yearTo,
+            @RequestParam(required = false) String tags,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        Page<Book> books = bookService.filterBooks(genres, author, yearFrom, yearTo, tags, page, size);
+        return ResponseEntity.ok(books);
+    }
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteBook(@PathVariable Long id) {
@@ -128,4 +141,5 @@ public class BookController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);  // Ошибка при чтении файла
         }
     }
+
 }

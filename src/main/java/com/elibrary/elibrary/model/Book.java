@@ -23,6 +23,11 @@ public class Book {
     private LocalDate publishedDate;
 
     private String filePath; // путь к pdf-файлу
+
+    private int availableCopies; // количество экземпляров
+
+    private String location; // местоположение книги в библиотеке
+
     @ManyToMany
     @JoinTable(
             name = "book_tags",
@@ -30,14 +35,6 @@ public class Book {
             inverseJoinColumns = @JoinColumn(name = "tag_id")
     )
     private Set<Tag> tags;
-
-    public Set<Tag> getTags() {
-        return tags;
-    }
-
-    public void setTags(Set<Tag> tags) {
-        this.tags = tags;
-    }
 
     // Геттеры и сеттеры
 
@@ -68,4 +65,16 @@ public class Book {
     public String getFilePath() { return filePath; }
 
     public void setFilePath(String filePath) { this.filePath = filePath; }
+
+    public int getAvailableCopies() { return availableCopies; }
+
+    public void setAvailableCopies(int availableCopies) { this.availableCopies = availableCopies; }
+
+    public String getLocation() { return location; }
+
+    public void setLocation(String location) { this.location = location; }
+
+    public Set<Tag> getTags() { return tags; }
+
+    public void setTags(Set<Tag> tags) { this.tags = tags; }
 }

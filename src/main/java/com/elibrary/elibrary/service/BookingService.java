@@ -67,6 +67,9 @@ public class BookingService {
                 .map(book -> book.getAvailableCopies() > 0)
                 .orElse(false);
     }
+    public List<Booking> findActiveBookings() {
+        return bookingRepository.findByStatus(BookingStatus.ACTIVE);
+    }
 
     public Booking save(Booking booking) {
         return bookingRepository.save(booking);

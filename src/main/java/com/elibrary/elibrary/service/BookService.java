@@ -117,11 +117,37 @@ public class BookService {
 
             if (tags != null && !tags.isEmpty()) {
                 List<String> tagList = Arrays.asList(tags.split(","));
-                Join<Book, Tag> tagJoin = root.join("tags", JoinType.LEFT);
+                Join<Book, Tag> tagJoin = root.join("tags", JoinType.INNER); // Важно: INNER JOIN
                 predicates.add(tagJoin.get("name").in(tagList));
+
+                // Группировка и подсчет — чтобы получить только те книги, у которых все теги совпадают
+                query.groupBy(root.get("id"));
+                query.having(cb.equal(cb.countDistinct(tagJoin.get("name")), tagList.size()));
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));
+        }, pageable);
+    }
+
+    public Page<Book> searchBooks(String queryText, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+
+        return bookRepository.findAll((root, query, cb) -> {
+            String lowerQuery = queryText.toLowerCase();
+
+            Predicate titleExact = cb.equal(cb.lower(root.get("title")), lowerQuery);
+            Predicate authorExact = cb.equal(cb.lower(root.get("author")), lowerQuery);
+            Predicate genreExact = cb.equal(cb.lower(root.get("genre")), lowerQuery);
+
+            Predicate exactMatch = cb.or(titleExact, authorExact, genreExact);
+
+            Predicate titleLike = cb.like(cb.lower(root.get("title")), "%" + lowerQuery + "%");
+            Predicate authorLike = cb.like(cb.lower(root.get("author")), "%" + lowerQuery + "%");
+            Predicate genreLike = cb.like(cb.lower(root.get("genre")), "%" + lowerQuery + "%");
+
+            Predicate partialMatch = cb.or(titleLike, authorLike, genreLike);
+
+            return cb.or(exactMatch, partialMatch);
         }, pageable);
     }
 }

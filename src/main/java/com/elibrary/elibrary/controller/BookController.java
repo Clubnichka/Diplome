@@ -142,4 +142,14 @@ public class BookController {
         }
     }
 
+    @GetMapping("/search")
+    public ResponseEntity<Page<Book>> searchBooks(
+            @RequestParam("query") String query,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        Page<Book> books = bookService.searchBooks(query, page, size);
+        return ResponseEntity.ok(books);
+    }
+
 }

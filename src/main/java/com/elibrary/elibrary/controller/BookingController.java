@@ -1,15 +1,13 @@
 package com.elibrary.elibrary.controller;
 
-import com.elibrary.elibrary.model.Book;
-import com.elibrary.elibrary.model.Booking;
-import com.elibrary.elibrary.model.BookingStatus;
-import com.elibrary.elibrary.model.User;
+import com.elibrary.elibrary.model.*;
 import com.elibrary.elibrary.security.CustomUserDetails;
 import com.elibrary.elibrary.service.AuthService;
 import com.elibrary.elibrary.service.BookService;
 import com.elibrary.elibrary.service.BookingService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -65,5 +63,20 @@ public class BookingController {
         private Long bookId;
         public Long getBookId() { return bookId; }
         public void setBookId(Long bookId) { this.bookId = bookId; }
+    }
+
+    @GetMapping("/admin/reservations/active")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getActiveBookings() {
+        return ResponseEntity.ok(
+                bookingService.findActiveBookings().stream().map(booking -> {
+                    return new ActiveBookingResponse(
+                            booking.getId(),
+                            booking.getBook().getTitle(),
+                            booking.getUser().getUsername(),
+                            booking.getBookingDate().plusDays(14) // срок истечения
+                    );
+                }).toList()
+        );
     }
 }

@@ -1,5 +1,6 @@
 package com.elibrary.elibrary.controller;
 
+import com.elibrary.elibrary.dto.BookDTO;
 import com.elibrary.elibrary.model.Book;
 import com.elibrary.elibrary.model.Tag;
 import com.elibrary.elibrary.service.BookService;
@@ -7,13 +8,19 @@ import com.elibrary.elibrary.service.TagService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.rendering.PDFRenderer;
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -22,6 +29,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/books")
@@ -45,8 +53,11 @@ public class BookController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Book> getBookById(@PathVariable Long id) {
+    public ResponseEntity<Book> getBookById(@PathVariable Long id, @AuthenticationPrincipal UserDetails userDetails) {
         Optional<Book> book = bookService.getBookById(id);
+        if (userDetails != null) {
+            bookService.recordBookView(id, userDetails.getUsername());
+        }
         return book.map(b -> {
             // Загружаем теги для книги по её ID
             b.setTags(tagService.getTagsForBook(b.getId()));
@@ -71,7 +82,7 @@ public class BookController {
         String uploadDir = Paths.get("uploads").toAbsolutePath().normalize().toString();
         Files.createDirectories(Paths.get(uploadDir));
 
-        String fileName = file.getOriginalFilename();
+        String fileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
         String filePath = uploadDir + File.separator + fileName;
         file.transferTo(new File(filePath));
 
@@ -83,13 +94,23 @@ public class BookController {
         book.setPublishedDate(LocalDate.parse(releaseDate));
         book.setFilePath(filePath);
 
-        // Сохраняем книгу и связанные с ней теги
+        // Извлечение обложки из PDF
+        try (PDDocument document = PDDocument.load(new File(filePath))) {
+            PDFRenderer renderer = new PDFRenderer(document);
+            BufferedImage image = renderer.renderImageWithDPI(0, 150);
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            ImageIO.write(image, "jpg", baos);
+            book.setCoverImage(baos.toByteArray());
+        } catch (IOException e) {
+            e.printStackTrace(); // Обложка не критична, поэтому продолжаем
+        }
+
         Book savedBook = bookService.addBook(book, tags != null ? tags : new ArrayList<>());
 
         return ResponseEntity.ok(savedBook);
     }
     @GetMapping("/filter")
-    public ResponseEntity<Page<Book>> filterBooks(
+    public ResponseEntity<Page<BookDTO>> filterBooks(
             @RequestParam(required = false) String genres,
             @RequestParam(required = false) String author,
             @RequestParam(required = false) Integer yearFrom,
@@ -98,7 +119,7 @@ public class BookController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
-        Page<Book> books = bookService.filterBooks(genres, author, yearFrom, yearTo, tags, page, size);
+        Page<BookDTO> books = bookService.filterBooks(genres, author, yearFrom, yearTo, tags, page, size);
         return ResponseEntity.ok(books);
     }
     @DeleteMapping("/{id}")
@@ -143,12 +164,12 @@ public class BookController {
     }
 
     @GetMapping("/search")
-    public ResponseEntity<Page<Book>> searchBooks(
+    public ResponseEntity<Page<BookDTO>> searchBooks(
             @RequestParam("query") String query,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
-        Page<Book> books = bookService.searchBooks(query, page, size);
+        Page<BookDTO> books = bookService.searchBooks(query, page, size);
         return ResponseEntity.ok(books);
     }
 
